@@ -1,0 +1,32 @@
+networks:
+  foo_network:
+    driver: bridge
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: ${container_prefix}_clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks:
+      - foo_network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/?query=SELECT%201 || exit 1
+
+  goose:
+    container_name: ${container_prefix}_goose
+    build:
+      dockerfile: ./dockerfiles/.goose.Dockerfile
+      args:
+        image: ${goose_alpine_image}
+        repo: ${goose_repo}
+        default_dir: ${goose_default_dir}
+    volumes:
+      - ./migrations:/sql
+    command: goose clickhouse "tcp://clickhouse:9000" up
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - foo_network
