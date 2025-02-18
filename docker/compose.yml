@@ -9,10 +9,29 @@ services:
     ports:
       - "8123:8123"
       - "9000:9000"
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
     networks:
       - foo_network
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:8123/?query=SELECT%201 || exit 1
+
+  postgres:
+    image: postgres:14.16-alpine3.20
+    container_name: ${container_prefix}_postgres
+    environment:
+      - POSTGRES_PASSWORD=${db_password}
+      - POSTGRES_USER=${db_user}
+      - POSTGRES_DB=${db_name}
+    ports:
+      - "25432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${db_user} -d ${db_name}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foo_network
 
   goose:
     container_name: ${container_prefix}_goose
@@ -27,6 +46,26 @@ services:
     command: goose clickhouse "tcp://clickhouse:9000" up
     depends_on:
       clickhouse:
+        condition: service_healthy
+    networks:
+      - foo_network
+
+  goose_postgres:
+    container_name: ${container_prefix}_goose_postgres
+    build:
+      dockerfile: ./dockerfiles/.goose.Dockerfile
+      args:
+        image: ${goose_alpine_image}
+        repo: ${goose_repo}
+        default_dir: ${goose_default_dir}
+    environment:
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=postgres://${db_user}:${db_password}@postgres:5432/${db_name}
+    volumes:
+      - ./migrations_postgres:/sql
+    command: goose up
+    depends_on:
+      postgres:
         condition: service_healthy
     networks:
       - foo_network
