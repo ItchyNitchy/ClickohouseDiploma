@@ -1,6 +1,6 @@
 -- +goose Up
 create table fulfilments (
-    id serial primary key,
+    id SERIAL primary key,
     year integer,
     source_id integer,
     district_id integer,

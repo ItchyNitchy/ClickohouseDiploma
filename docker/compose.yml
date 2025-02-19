@@ -47,6 +47,8 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     networks:
       - foo_network
 
