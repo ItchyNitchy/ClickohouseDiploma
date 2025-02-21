@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using ClickHouse.Client.ADO;
 using sanitation_web_api;
+using sanitation_web_api.helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +11,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped((x) => new ClickHouseConnection(builder.Configuration.GetValue<string>("ClickhouseHost")));
+builder.Services.AddScoped((x) => new ClickhouseClientDecorator(builder.Configuration.GetValue<string>("ClickhouseHost")));
 builder.Services.AddDbContext<SanitationDbContext>(x => x.UseNpgsql(builder.Configuration.GetValue<string>("PostgresDSN")),
     ServiceLifetime.Scoped);
 

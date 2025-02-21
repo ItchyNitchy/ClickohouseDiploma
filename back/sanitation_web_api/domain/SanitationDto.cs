@@ -1,6 +1,4 @@
-﻿using sanitation_web_api.domain.enums;
-
-namespace sanitation_web_api.domain
+﻿namespace sanitation_web_api.domain
 {
     public class SanitationDto
     {
