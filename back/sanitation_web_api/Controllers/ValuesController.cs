@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using ClickHouse.Client.Utility;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sanitation_web_api.domain;
 using sanitation_web_api.helpers;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace sanitation_web_api.Controllers
 {
-    [Route("api/[controller]/[method]")]
+    [Route("api/[controller]/[action]")]
     [ApiController]
     public class ValuesController(SanitationDbContext postgres, ClickhouseClientDecorator clickHouse) : ControllerBase
     {
@@ -45,6 +47,7 @@ namespace sanitation_web_api.Controllers
             return previousFulfiments;
         }
 
+        [HttpGet]
         public async Task<DictionaryDto[]> GetDictitonary(int type, CancellationToken cancellation) => type switch
         {
             1 => await postgres.Organizations.ToArrayAsync(cancellation),
@@ -52,5 +55,68 @@ namespace sanitation_web_api.Controllers
             3 => await postgres.Districts.ToArrayAsync(cancellation),
             _ => []
         };
+
+        [HttpGet]
+        public async Task<IActionResult> GetAggregated(int regionId, int year, int? districtId, CancellationToken cancellation)
+        {
+            //sorting_and_recycling_per_district
+
+            using var command = clickHouse.CreateCommand();
+            var query = districtId == null ?
+                @$"select sumForEachMerge(values) as values
+                            from sanitation_of_settlements.sorting_and_recycling_per_region 
+                                WHERE region_id = {regionId} AND year = {year} GROUP BY year, region_id FORMAT JSONEachRow" :
+                @$"select sumForEachMerge(values) as values
+                            from sanitation_of_settlements.sorting_and_recycling_per_district 
+                                WHERE region_id = {regionId} AND district_id = {districtId} AND year = {year} GROUP BY year, region_id, district_id FORMAT JSONEachRow";
+
+            command.CommandText = query;
+
+            var result = await command.ExecuteRawResultAsync(cancellation);
+            using var stream = await result.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            var json = reader.ReadToEnd();
+
+            //var result = await clickHouse.(query);
+
+            return Content(json, "application/json");
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetSummary(int regionId, int year, CancellationToken cancellation)
+        {
+            //sorting_and_recycling_per_district
+
+            using var command = clickHouse.CreateCommand();
+            var query = 
+                @$"select 
+                    dictGet('districts', 'name', district_id) as name,
+                    sum(sorting_sites) as sorting_sites,
+                    sum(sorting_capacity) as sorting_capacity,
+                    sum(sorting_processed) as sorting_processed,
+                    sum(sorting_collected) as sorting_collected,
+                    sum(sorting_dumped) as sorting_dumped,
+                    sum(recycling_sites) as recycling_sites,
+                    sum(recycling_capacity) as recycling_capacity,
+                    sum(recycling_processed) as recycling_processed,
+                    sum(recycling_collected) as recycling_collected,
+                    sum(recycling_dumped) as recycling_dumped
+                        from sanitation_of_settlements.waste_processing 
+                        where year = {year} AND region_id = {regionId}
+                        group by year, region_id, district_id
+                        FORMAT JSON";
+
+            command.CommandText = query;
+
+            var result = await command.ExecuteRawResultAsync(cancellation);
+            using var stream = await result.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            var json = reader.ReadToEnd();
+
+            //var result = await clickHouse.(query);
+
+            return Content(json, "application/json");
+        }
     }
 }

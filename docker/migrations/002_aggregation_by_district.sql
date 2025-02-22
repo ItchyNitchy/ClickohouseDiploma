@@ -196,3 +196,21 @@ as select
     sumForEachState(source.values * source.sign) as values
 from sanitation_of_settlements.additional as source
 group by year, region_id, district_id;
+
+--##
+
+create table sanitation_of_settlements.sorting_and_recycling_per_region (
+    values AggregateFunction(sumForEach, Array(Decimal128(2))),
+    year UInt64,
+    region_id UInt64
+) engine AggregatingMergeTree()
+order by (year, region_id)
+comment 'Раздел 4. Объекты сортировки и переработки твердых коммунальных отходов. По областям';
+
+create materialized view sanitation_of_settlements.sorting_and_recycling_per_region_mv to sanitation_of_settlements.sorting_and_recycling_per_region
+as select
+    source.year as year,
+    source.region_id as region_id,
+    sumForEachState(source.values * source.sign) as values
+from sanitation_of_settlements.sorting_and_recycling as source
+group by year, region_id;

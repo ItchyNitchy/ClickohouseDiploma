@@ -1,20 +1,10 @@
 <template>
   <div class="heading">
     <div>РАЗДЕЛ IV.</div>
-    <div>ОБЪЕКТЫ СОРТИРОВКИ И ПЕРЕРАБОТКИ ТВЕРДЫХ КОММУНАЛЬНЫХ ОТХОДОВ. 2025</div>
+    <div>ОБЪЕКТЫ СОРТИРОВКИ И ПЕРЕРАБОТКИ ТВЕРДЫХ КОММУНАЛЬНЫХ ОТХОДОВ. За 2025 по</div>
   </div>
 
   <div class="row">
-    <q-select
-      class="col"
-      label="Организация"
-      :options="organizations"
-      :option-label="(x) => x.name"
-      :option-value="(x) => x.id"
-      v-model="selectedOrganization"
-      map-options
-      emit-value
-    ></q-select>
     <q-select
       class="col"
       label="Область"
@@ -28,6 +18,7 @@
     <q-select
       class="col"
       label="Район"
+      clearable
       :options="districts"
       :option-label="(x) => x.name"
       :option-value="(x) => x.id"
@@ -51,30 +42,25 @@
       <tr v-for="row in rows" :key="row.name">
         <td class="cell">{{ row.name }}</td>
         <td class="cell text-center">{{ row.number }}</td>
-        <td class="cell" v-for="value in row.values" :key="value.toString()">
-          <q-input v-model="data[value]" class="text-center"></q-input>
+        <td class="cell text-center" v-for="value in row.values" :key="value.toString()">
+          {{ data[value] }}
         </td>
       </tr>
     </tbody>
   </table>
-  <q-btn @click="addFulfiment">Сохранить</q-btn>
   <q-page padding class="page-with-table"> </q-page>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'Vue'
 import { api } from '../boot/axios'
-import { useQuasar } from 'quasar'
-const data = ref([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
-const $q = useQuasar()
-const organizations = ref([])
 const regions = ref([])
+const data = ref([])
 const districts = ref([])
 
-const selectedOrganization = ref()
-const selectedRegion = ref()
 const selectedDistrict = ref()
+const selectedRegion = ref()
 
 const range = (start, end) => {
   let array = []
@@ -113,29 +99,11 @@ const getDictionary = async (type) => {
   return responce.data
 }
 
-const addFulfiment = async () => {
-  if (selectedOrganization.value && selectedRegion.value && selectedDistrict.value) {
-    let body = {
-      id: 0,
-      values: data.value,
-      year: 2025,
-      sourceId: selectedOrganization.value,
-      regionId: selectedRegion.value,
-      districtId: selectedDistrict.value,
-    }
-    await api.post('/api/Values/AddFulfilment', body)
-    $q.notify('Сохранено!')
-  } else {
-    $q.notify('Необходимо выбрать все параметры')
-  }
-}
-
-const getLastFulfiment = async () => {
-  let responce = await api.get('/api/Values/GetPreviousFulfilment', {
+const getAggregated = async () => {
+  let responce = await api.get('/api/Values/GetAggregated', {
     params: {
-      sourceId: selectedOrganization.value,
       regionId: selectedRegion.value,
-      districtId: selectedDistrict.value,
+      districtId: selectedDistrict.value ?? null,
       year: 2025,
     },
   })
@@ -143,18 +111,17 @@ const getLastFulfiment = async () => {
 }
 
 onMounted(async () => {
-  organizations.value = await getDictionary(1)
   regions.value = await getDictionary(2)
   districts.value = await getDictionary(3)
 })
 
-watch([selectedOrganization, selectedRegion, selectedDistrict], async () => {
-  if (selectedOrganization.value && selectedRegion.value && selectedDistrict.value) {
-    let responce = await getLastFulfiment()
-    if (!responce.values) {
-      data.value = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    } else {
+watch([selectedRegion, selectedDistrict], async () => {
+  if (selectedRegion.value) {
+    let responce = await getAggregated()
+    if (responce?.values) {
       data.value = responce.values
+    } else {
+      data.value = []
     }
   }
 })
