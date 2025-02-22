@@ -58,7 +58,7 @@
       </tr>
     </tbody>
   </table>
-  <q-page padding class="page-with-table"> </q-page>
+  <q-btn @click="refresh">Обновить</q-btn>
 </template>
 
 <script setup>
@@ -91,18 +91,23 @@ onMounted(async () => {
 
 watch([selectedRegion], async () => {
   if (selectedRegion.value) {
-    let responce = await getSummary()
-    if (responce?.data) {
-      data.value = responce.data
-    } else {
-      data.value = []
-    }
+    await refresh()
   }
 })
+
+const refresh = async () => {
+  let responce = await getSummary()
+  if (responce?.data) {
+    data.value = responce.data
+  } else {
+    data.value = []
+  }
+}
 </script>
 <style>
-.cell text-center {
+.cell {
   vertical-align: top;
   border: 1px solid;
+  padding: 5px;
 }
 </style>

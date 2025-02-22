@@ -58,7 +58,6 @@
     </tbody>
   </table>
   <q-btn @click="addFulfiment">Сохранить</q-btn>
-  <q-page padding class="page-with-table"> </q-page>
 </template>
 
 <script setup>
@@ -163,5 +162,6 @@ watch([selectedOrganization, selectedRegion, selectedDistrict], async () => {
 .cell {
   vertical-align: top;
   border: 1px solid;
+  padding: 5px;
 }
 </style>

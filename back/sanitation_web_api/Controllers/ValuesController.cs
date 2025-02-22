@@ -1,9 +1,7 @@
-﻿using ClickHouse.Client.Utility;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sanitation_web_api.domain;
 using sanitation_web_api.helpers;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace sanitation_web_api.Controllers
 {
@@ -89,7 +87,7 @@ namespace sanitation_web_api.Controllers
             //sorting_and_recycling_per_district
 
             using var command = clickHouse.CreateCommand();
-            var query = 
+            var query =
                 @$"select 
                     dictGet('districts', 'name', district_id) as name,
                     sum(sorting_sites) as sorting_sites,
@@ -114,9 +112,49 @@ namespace sanitation_web_api.Controllers
             using var reader = new StreamReader(stream);
             var json = reader.ReadToEnd();
 
-            //var result = await clickHouse.(query);
-
             return Content(json, "application/json");
+        }
+
+        [HttpGet]
+        public async Task GenerateMock(CancellationToken cancellation)
+        {
+            var organizations = await postgres.Organizations.ToArrayAsync(cancellation);
+            var regions = await postgres.Regions.ToArrayAsync(cancellation);
+            var districts = await postgres.Districts.ToArrayAsync(cancellation);
+
+            var processed = new List<string>();
+
+            var rand = new Random();
+            for(int i = 0;  i < 100; i++)
+            {
+                var org = organizations[rand.Next(0, organizations.Length)];
+                var region = regions[rand.Next(0, regions.Length)];
+                var district = districts[rand.Next(0, districts.Length)];
+
+                var key = $"{org.Id}{region.Id}{district.Id}";
+
+                if(processed.Any(x => x == key))
+                {
+                    continue;
+                }
+                processed.Add(key);
+
+                var values = new float[20];
+                for(int j = 0; j < 20; j++)
+                {
+                    values[j] = rand.Next(1, 10) + rand.NextSingle();
+                }
+
+                await AddFulfilment(new SanitationEntity
+                {
+                    Id = 0,
+                    DistrictId = district.Id,
+                    RegionId = region.Id,
+                    SourceId = org.Id,
+                    Year = 2025,
+                    Values = values
+                }, new CancellationToken());
+            }
         }
     }
 }
